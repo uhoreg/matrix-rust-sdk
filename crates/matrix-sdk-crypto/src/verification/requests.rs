@@ -599,6 +599,7 @@ impl VerificationRequest {
                 Verification::SasV1(s) => s.cancel_with_code(cancel_code),
                 #[cfg(feature = "qrcode")]
                 Verification::QrV1(q) => q.cancel_with_code(cancel_code),
+                Verification::QrContinuationV1(q) => q.cancel_with_code(cancel_code),
             };
         }
 
@@ -1420,6 +1421,7 @@ async fn receive_start<T: Clone>(
                                 Ok(Some(state.to_transitioned(request_state, new.into())))
                             }
                         }
+                        Some(Verification::QrContinuationV1(qr)) => { todo!() }
                         None => {
                             info!("Started a new SAS verification.");
                             request_state.verification_cache.insert_sas(new.to_owned());
@@ -1467,8 +1469,11 @@ async fn receive_start<T: Clone>(
             }
         }
         m => {
-            warn!(method = ?m, "Received a key verification start event with an unsupported method");
-            Ok(None)
+            let Ok(continuation) = super::qrcode_continuation::StartEvent::try_from(m) else {
+                warn!(method = ?m, "Received a key verification start event with an unsupported method");
+                return Ok(None)
+            };
+            todo!()
         }
     }
 }

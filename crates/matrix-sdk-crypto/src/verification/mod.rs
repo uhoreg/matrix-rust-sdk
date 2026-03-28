@@ -17,6 +17,7 @@ mod event_enums;
 mod machine;
 #[cfg(feature = "qrcode")]
 mod qrcode;
+mod qrcode_continuation;
 mod requests;
 mod sas;
 
@@ -27,6 +28,7 @@ use event_enums::OutgoingContent;
 pub use machine::VerificationMachine;
 #[cfg(feature = "qrcode")]
 pub use qrcode::{QrVerification, QrVerificationState, ScanError};
+pub use qrcode_continuation::QrContinuationVerification;
 pub use requests::{VerificationRequest, VerificationRequestState};
 #[cfg(feature = "qrcode")]
 use ruma::events::key::verification::done::{
@@ -190,6 +192,7 @@ pub enum Verification {
     // `Box` the `QrVerification` to reduce the enum size.
     #[cfg(feature = "qrcode")]
     QrV1(Box<QrVerification>),
+    QrContinuationV1(Box<QrContinuationVerification>),
 }
 
 impl Verification {
@@ -204,12 +207,17 @@ impl Verification {
         as_variant!(self, Verification::QrV1)
     }
 
+    pub fn qr_continuation_v1(self) -> Option<Box<QrContinuationVerification>> {
+        as_variant!(self, Verification::QrContinuationV1)
+    }
+
     /// Has this verification finished.
     pub fn is_done(&self) -> bool {
         match self {
             Verification::SasV1(s) => s.is_done(),
             #[cfg(feature = "qrcode")]
             Verification::QrV1(qr) => qr.is_done(),
+            Verification::QrContinuationV1(qr) => qr.is_done(),
         }
     }
 
@@ -219,6 +227,7 @@ impl Verification {
             Verification::SasV1(s) => s.flow_id().as_str(),
             #[cfg(feature = "qrcode")]
             Verification::QrV1(qr) => qr.flow_id().as_str(),
+            Verification::QrContinuationV1(qr) => qr.flow_id().as_str(),
         }
     }
 
@@ -228,6 +237,7 @@ impl Verification {
             Verification::SasV1(s) => s.is_cancelled(),
             #[cfg(feature = "qrcode")]
             Verification::QrV1(qr) => qr.is_cancelled(),
+            Verification::QrContinuationV1(qr) => qr.is_cancelled(),
         }
     }
 
@@ -237,6 +247,7 @@ impl Verification {
             Verification::SasV1(v) => v.user_id(),
             #[cfg(feature = "qrcode")]
             Verification::QrV1(v) => v.user_id(),
+            Verification::QrContinuationV1(qr) => qr.user_id(),
         }
     }
 
@@ -246,6 +257,7 @@ impl Verification {
             Verification::SasV1(s) => s.other_user_id(),
             #[cfg(feature = "qrcode")]
             Verification::QrV1(qr) => qr.other_user_id(),
+            Verification::QrContinuationV1(qr) => qr.other_user_id(),
         }
     }
 
@@ -255,6 +267,7 @@ impl Verification {
             Verification::SasV1(v) => v.is_self_verification(),
             #[cfg(feature = "qrcode")]
             Verification::QrV1(v) => v.is_self_verification(),
+            Verification::QrContinuationV1(_qr) => false,
         }
     }
 
@@ -263,6 +276,7 @@ impl Verification {
             Verification::SasV1(v) => v.cancel(),
             #[cfg(feature = "qrcode")]
             Verification::QrV1(v) => v.cancel(),
+            Verification::QrContinuationV1(v) => v.cancel(),
         }
     }
 }
@@ -277,6 +291,12 @@ impl From<Sas> for Verification {
 impl From<QrVerification> for Verification {
     fn from(qr: QrVerification) -> Self {
         Self::QrV1(Box::new(qr))
+    }
+}
+
+impl From<QrContinuationVerification> for Verification {
+    fn from(qr: QrContinuationVerification) -> Self {
+        Self::QrContinuationV1(Box::new(qr))
     }
 }
 

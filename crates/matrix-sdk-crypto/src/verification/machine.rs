@@ -45,10 +45,16 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+enum ContinuableRequest {
+    Qr(super::qrcode_continuation::QrCodeState)
+}
+
+#[derive(Clone, Debug)]
 pub struct VerificationMachine {
     pub(crate) store: VerificationStore,
     verifications: VerificationCache,
     requests: Arc<StdRwLock<HashMap<OwnedUserId, HashMap<String, VerificationRequest>>>>,
+    continuable: Arc<StdRwLock<HashMap<String, ContinuableRequest>>>,
 }
 
 impl VerificationMachine {
@@ -61,6 +67,7 @@ impl VerificationMachine {
             store: VerificationStore { account, private_identity: identity, inner: store },
             verifications: VerificationCache::new(),
             requests: Default::default(),
+            continuable: Default::default(),
         }
     }
 
@@ -118,6 +125,8 @@ impl VerificationMachine {
 
         request
     }
+
+    // FIXME: add method to request verification with continuation
 
     pub async fn start_sas(
         &self,
@@ -334,6 +343,8 @@ impl VerificationMachine {
         let Some(content) = event.verification_content() else { return Ok(()) };
         match &content {
             AnyVerificationContent::Request(r) => {
+                // FIXME: auto-accept verifications with a continuation code
+                // that we recognize
                 info!(
                     sender = ?event.sender(),
                     from_device = r.from_device().as_str(),
@@ -400,10 +411,12 @@ impl VerificationMachine {
                         }
                         #[cfg(feature = "qrcode")]
                         Verification::QrV1(qr) => qr.receive_cancel(event.sender(), c),
+                        Verification::QrContinuationV1(_) => todo!()
                     }
                 }
             }
             AnyVerificationContent::Ready(c) => {
+                // FIXME: do something for continuation verifications?
                 let Some(request) = self.get_request(event.sender(), flow_id.as_str()) else {
                     return Ok(());
                 };
@@ -524,6 +537,7 @@ impl VerificationMachine {
                             self.verifications.add_request(s.into())
                         }
                     }
+                    Some(Verification::QrContinuationV1(qr)) => { todo!() }
                     None => {}
                 }
             }
@@ -573,6 +587,7 @@ mod tests {
             store,
             verifications: VerificationCache::new(),
             requests: Default::default(),
+            continuable: Default::default(),
         };
 
         (machine, bob_store)

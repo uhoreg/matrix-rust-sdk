@@ -265,6 +265,7 @@ impl VerificationCache {
                 Verification::SasV1(s) => s.mark_request_as_sent(request_id),
                 #[cfg(feature = "qrcode")]
                 Verification::QrV1(_) => (),
+                Verification::QrContinuationV1(_) => todo!(),
             }
         }
     }
